@@ -33,11 +33,12 @@ type Job struct {
 		}
 	}
 	Printer struct {
-		ConnectionType string
-		Host           string
-		Port           int
-		SystemName     string
-		PaperWidth     int
+		ConnectionType  string
+		FallbackEnabled bool
+		Host            string
+		Port            int
+		SystemName      string
+		PaperWidth      int
 	}
 }
 
@@ -75,7 +76,37 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	switch j.Printer.ConnectionType {
+	return sendWithFallback(ctx, j.Printer.ConnectionType, j.Printer.FallbackEnabled, func(transport string) (bool, error) {
+		return j.send(ctx, transport, data)
+	})
+}
+
+func sendWithFallback(ctx context.Context, primary string, enabled bool, send func(string) (bool, error)) (bool, error) {
+	safe, err := send(primary)
+	if err == nil || !safe || !enabled || ctx.Err() != nil {
+		return safe, err
+	}
+	var fallback string
+	switch primary {
+	case "NETWORK_TCP":
+		fallback = "SYSTEM_PRINTER"
+	case "SYSTEM_PRINTER":
+		fallback = "NETWORK_TCP"
+	default:
+		return safe, err
+	}
+	fallbackSafe, fallbackErr := send(fallback)
+	if fallbackErr == nil {
+		return false, nil
+	}
+	return fallbackSafe, fmt.Errorf("principal (%s): %w; respaldo (%s): %w", primary, err, fallback, fallbackErr)
+}
+
+func (j Job) send(ctx context.Context, transport string, data []byte) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return true, err
+	}
+	switch transport {
 	case "NETWORK_TCP":
 		dialer := net.Dialer{Timeout: 5 * time.Second}
 		conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(j.Printer.Host, strconv.Itoa(j.Printer.Port)))
@@ -95,7 +126,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		}
 		return false, err
 	case "SYSTEM_PRINTER":
-		return winprint.SendRaw(ctx, j.Printer.SystemName, data)
+		return winprint.SendRaw(ctx, j.Printer.SystemName, data, j.Printer.FallbackEnabled)
 	default:
 		return true, fmt.Errorf("tipo de conexión incompatible")
 	}

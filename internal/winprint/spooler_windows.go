@@ -11,6 +11,7 @@ import (
 var (
 	spooler      = syscall.NewLazyDLL("winspool.drv")
 	openPrinter  = spooler.NewProc("OpenPrinterW")
+	getPrinter   = spooler.NewProc("GetPrinterW")
 	closePrinter = spooler.NewProc("ClosePrinter")
 	startDoc     = spooler.NewProc("StartDocPrinterW")
 	endDoc       = spooler.NewProc("EndDocPrinter")
@@ -33,7 +34,7 @@ func spoolError(operation string, err error) error {
 
 // SendRaw returns whether a failed job can be retried without duplicating output.
 // Winspool calls are synchronous; context is checked between native calls.
-func SendRaw(ctx context.Context, name string, data []byte) (safe bool, err error) {
+func SendRaw(ctx context.Context, name string, data []byte, checkStatus bool) (safe bool, err error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(data) == 0 || uint64(len(data)) > uint64(^uint32(0)) {
 		return true, fmt.Errorf("cola o contenido RAW inválido")
@@ -52,6 +53,14 @@ func SendRaw(ctx context.Context, name string, data []byte) (safe bool, err erro
 		return true, spoolError("OpenPrinterW", callErr)
 	}
 	defer closePrinter.Call(uintptr(handle))
+	if checkStatus {
+		var status, needed uint32
+		const unavailable = 0x0001 | 0x0080 | 0x1000 // paused, offline, not available
+		ok, _, _ := getPrinter.Call(uintptr(handle), 6, uintptr(unsafe.Pointer(&status)), unsafe.Sizeof(status), uintptr(unsafe.Pointer(&needed)))
+		if ok != 0 && status&unavailable != 0 {
+			return true, fmt.Errorf("Windows indica que la cola %q no está disponible", name)
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return true, err
 	}
