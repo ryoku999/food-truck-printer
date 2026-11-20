@@ -39,6 +39,9 @@ type Job struct {
 
 // Print reports whether a failure occurred before any delivery was attempted.
 func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return true, err
+	}
 	if len(j.Payload.Lines) == 0 && len(j.Payload.Items) > 0 {
 		j.Payload.Lines = []string{fmt.Sprintf("%s | Pedido #%d", j.Payload.ProductionArea, j.Payload.OrderNumber)}
 		for _, item := range j.Payload.Items {
