@@ -20,6 +20,7 @@ type Job struct {
 	Attempt int
 	Payload struct {
 		Lines          []string
+		HeaderLines    int
 		OrderNumber    int
 		ProductionArea string
 		Items          []struct {
@@ -51,8 +52,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 			}
 		}
 	}
-	lines := escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth)
-	if len(lines) == 0 {
+	if len(j.Payload.Lines) == 0 {
 		return true, fmt.Errorf("trabajo sin contenido")
 	}
 	if outputDir != "" {
@@ -63,10 +63,10 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		if err := os.MkdirAll(outputDir, 0700); err != nil {
 			return true, err
 		}
-		content := strings.Join(lines, "\n") + "\n\n\n"
+		content := strings.Join(escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth), "\n") + "\n\n\n"
 		return true, os.WriteFile(filepath.Join(outputDir, filename), []byte(content), 0600)
 	}
-	data, err := escpos.Encode(lines)
+	data, err := escpos.Encode(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines)
 	if err != nil {
 		return true, err
 	}
