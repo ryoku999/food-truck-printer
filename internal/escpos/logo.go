@@ -41,13 +41,19 @@ func logoRaster(data []byte, paperWidth int) []byte {
 	draw.Draw(resized, resized.Bounds(), image.White, image.Point{}, draw.Src)
 	draw.ApproxBiLinear.Scale(resized, resized.Bounds(), src, bounds, draw.Over, nil)
 
+	return packRaster(width, height, func(x, y int) bool {
+		return color.GrayModel.Convert(resized.RGBAAt(x, y)).(color.Gray).Y < 160
+	})
+}
+
+func packRaster(width, height int, black func(x, y int) bool) []byte {
 	stride := (width + 7) / 8
 	raster := make([]byte, 8+stride*height)
 	copy(raster, []byte{0x1d, 'v', '0', 0, byte(stride), byte(stride >> 8), byte(height), byte(height >> 8)})
 	var hasInk bool
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			if color.GrayModel.Convert(resized.RGBAAt(x, y)).(color.Gray).Y < 160 {
+			if black(x, y) {
 				raster[8+y*stride+x/8] |= 0x80 >> uint(x%8)
 				hasInk = true
 			}

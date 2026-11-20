@@ -20,7 +20,7 @@ func TestEncodeWithLogo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	withLogo, err := EncodeWithLogo(lines, 80, 2, false, encoded.Bytes())
+	withLogo, err := EncodeReceipt(lines, 80, 2, false, encoded.Bytes(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,9 +30,20 @@ func TestEncodeWithLogo(t *testing.T) {
 	if !bytes.Equal(withLogo, want) {
 		t.Fatalf("ticket con logo = %q, esperado %q", withLogo, want)
 	}
-	fallback, err := EncodeWithLogo(lines, 80, 2, false, []byte("imagen inválida"))
+	fallback, err := EncodeReceipt(lines, 80, 2, false, []byte("imagen inválida"), "")
 	if err != nil || !bytes.Equal(fallback, plain) {
 		t.Fatalf("la imagen inválida cambió el ticket: %q, %v", fallback, err)
+	}
+}
+
+func TestReceiptQRBeforeCut(t *testing.T) {
+	data, err := EncodeReceipt([]string{"PAGADO"}, 58, 0, false, nil, "https://example.com/ticket#sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte("Verifica tu ticket\n\x1dv0\x00")) ||
+		!bytes.HasSuffix(data, []byte("\n\x1ba\x00\x1bd\x03\x1dVB\x00")) {
+		t.Fatal("el QR debe quedar después del texto y antes del corte")
 	}
 }
 

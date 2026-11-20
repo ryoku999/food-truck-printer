@@ -68,10 +68,10 @@ func encodeText(lines []string) ([]byte, error) {
 // Encode wraps plain and styled tickets. The optional header occupies the first
 // lines of the payload, with the restaurant first and the title last.
 func Encode(lines []string, paperWidth, headerLines int, emphasizeFooter bool) ([]byte, error) {
-	return EncodeWithLogo(lines, paperWidth, headerLines, emphasizeFooter, nil)
+	return EncodeReceipt(lines, paperWidth, headerLines, emphasizeFooter, nil, "")
 }
 
-func EncodeWithLogo(lines []string, paperWidth, headerLines int, emphasizeFooter bool, logo []byte) ([]byte, error) {
+func EncodeReceipt(lines []string, paperWidth, headerLines int, emphasizeFooter bool, logo []byte, receiptURL string) ([]byte, error) {
 	var result bytes.Buffer
 	result.WriteString("\x1b@\x1bt\x02")
 	if raster := logoRaster(logo, paperWidth); len(raster) > 0 {
@@ -121,6 +121,14 @@ func EncodeWithLogo(lines []string, paperWidth, headerLines int, emphasizeFooter
 			return nil, err
 		}
 		result.WriteString("\x1d!\x00\x1bE\x00\x1ba\x00")
+	}
+	if raster := receiptQR(receiptURL); len(raster) > 0 {
+		result.WriteString("\n\x1ba\x01")
+		if err := appendText([]string{"Verifica tu ticket"}); err != nil {
+			return nil, err
+		}
+		result.Write(raster)
+		result.WriteString("\n\x1ba\x00")
 	}
 	result.WriteString("\x1bd\x03\x1dVB\x00")
 	return result.Bytes(), nil
