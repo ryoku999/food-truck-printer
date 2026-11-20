@@ -29,7 +29,7 @@ en NestJS, pega el nuevo. El instalador conserva el directorio del diario.
 
 ## Reconstruir el instalador
 
-Desde la raíz del repositorio, en Windows con Go 1.22 o posterior:
+Desde la raíz del repositorio, en Windows con Go 1.26 o posterior:
 
 ```text
 go run ./cmd/build-installer

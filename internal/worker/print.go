@@ -16,9 +16,10 @@ import (
 )
 
 type Job struct {
-	ID      string
-	Attempt int
-	Payload struct {
+	ID        string
+	Attempt   int
+	LogoImage []byte
+	Payload   struct {
 		Lines           []string
 		HeaderLines     int
 		EmphasizeFooter bool
@@ -67,7 +68,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		content := strings.Join(escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth), "\n") + "\n\n\n"
 		return true, os.WriteFile(filepath.Join(outputDir, filename), []byte(content), 0600)
 	}
-	data, err := escpos.Encode(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines, j.Payload.EmphasizeFooter)
+	data, err := escpos.EncodeWithLogo(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines, j.Payload.EmphasizeFooter, j.LogoImage)
 	if err != nil {
 		return true, err
 	}

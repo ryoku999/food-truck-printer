@@ -2,8 +2,39 @@ package escpos
 
 import (
 	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"testing"
 )
+
+func TestEncodeWithLogo(t *testing.T) {
+	logo := image.NewNRGBA(image.Rect(0, 0, 2, 1))
+	logo.Set(0, 0, color.Black)
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, logo); err != nil {
+		t.Fatal(err)
+	}
+	lines := []string{"Food Truck", "PRECUENTA"}
+	plain, err := Encode(lines, 80, 2, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	withLogo, err := EncodeWithLogo(lines, 80, 2, false, encoded.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const init = "\x1b@\x1bt\x02"
+	const raster = "\x1ba\x01\x1dv0\x00\x01\x00\x01\x00\x80\n\x1ba\x00"
+	want := append([]byte(init+raster), plain[len(init):]...)
+	if !bytes.Equal(withLogo, want) {
+		t.Fatalf("ticket con logo = %q, esperado %q", withLogo, want)
+	}
+	fallback, err := EncodeWithLogo(lines, 80, 2, false, []byte("imagen inválida"))
+	if err != nil || !bytes.Equal(fallback, plain) {
+		t.Fatalf("la imagen inválida cambió el ticket: %q, %v", fallback, err)
+	}
+}
 
 func TestEncodeStyledTicket(t *testing.T) {
 	data, err := Encode([]string{

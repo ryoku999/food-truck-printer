@@ -68,8 +68,17 @@ func encodeText(lines []string) ([]byte, error) {
 // Encode wraps plain and styled tickets. The optional header occupies the first
 // lines of the payload, with the restaurant first and the title last.
 func Encode(lines []string, paperWidth, headerLines int, emphasizeFooter bool) ([]byte, error) {
+	return EncodeWithLogo(lines, paperWidth, headerLines, emphasizeFooter, nil)
+}
+
+func EncodeWithLogo(lines []string, paperWidth, headerLines int, emphasizeFooter bool, logo []byte) ([]byte, error) {
 	var result bytes.Buffer
 	result.WriteString("\x1b@\x1bt\x02")
+	if raster := logoRaster(logo, paperWidth); len(raster) > 0 {
+		result.WriteString("\x1ba\x01")
+		result.Write(raster)
+		result.WriteString("\n\x1ba\x00")
+	}
 	appendText := func(text []string) error {
 		if len(text) == 0 {
 			return nil
