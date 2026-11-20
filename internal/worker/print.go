@@ -19,11 +19,12 @@ type Job struct {
 	ID      string
 	Attempt int
 	Payload struct {
-		Lines          []string
-		HeaderLines    int
-		OrderNumber    int
-		ProductionArea string
-		Items          []struct {
+		Lines           []string
+		HeaderLines     int
+		EmphasizeFooter bool
+		OrderNumber     int
+		ProductionArea  string
+		Items           []struct {
 			ProductNameSnapshot string
 			Quantity            int
 			Notes               string
@@ -66,7 +67,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		content := strings.Join(escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth), "\n") + "\n\n\n"
 		return true, os.WriteFile(filepath.Join(outputDir, filename), []byte(content), 0600)
 	}
-	data, err := escpos.Encode(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines)
+	data, err := escpos.Encode(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines, j.Payload.EmphasizeFooter)
 	if err != nil {
 		return true, err
 	}

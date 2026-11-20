@@ -8,7 +8,7 @@ import (
 func TestEncodeStyledTicket(t *testing.T) {
 	data, err := Encode([]string{
 		"Restaurante Nombre Muy Largo", "Av. Principal", "PRECUENTA", "Pedido #1",
-	}, 58, 3)
+	}, 58, 3, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,11 +21,26 @@ func TestEncodeStyledTicket(t *testing.T) {
 }
 
 func TestEncodeLegacyTicket(t *testing.T) {
-	data, err := Encode([]string{"Prueba"}, 80, 0)
+	data, err := Encode([]string{"Prueba"}, 80, 0, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := []byte("\x1b@\x1bt\x02Prueba\n\x1bd\x03\x1dVB\x00"); !bytes.Equal(data, want) {
+		t.Fatalf("ticket = %q, esperado %q", data, want)
+	}
+}
+
+func TestEncodePaymentFooter(t *testing.T) {
+	data, err := Encode([]string{
+		"Estado: PAGADO", "--------------------------------", "Gracias por su visita",
+	}, 80, 0, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte("\x1b@\x1bt\x02Estado: PAGADO\n--------------------------------\n" +
+		"\x1ba\x01\x1bE\x01\x1d!\x01Gracias por su visita\n" +
+		"\x1d!\x00\x1bE\x00\x1ba\x00\x1bd\x03\x1dVB\x00")
+	if !bytes.Equal(data, want) {
 		t.Fatalf("ticket = %q, esperado %q", data, want)
 	}
 }

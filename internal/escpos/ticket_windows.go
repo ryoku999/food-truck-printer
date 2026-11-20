@@ -67,7 +67,7 @@ func encodeText(lines []string) ([]byte, error) {
 
 // Encode wraps plain and styled tickets. The optional header occupies the first
 // lines of the payload, with the restaurant first and the title last.
-func Encode(lines []string, paperWidth, headerLines int) ([]byte, error) {
+func Encode(lines []string, paperWidth, headerLines int, emphasizeFooter bool) ([]byte, error) {
 	var result bytes.Buffer
 	result.WriteString("\x1b@\x1bt\x02")
 	appendText := func(text []string) error {
@@ -97,8 +97,21 @@ func Encode(lines []string, paperWidth, headerLines int) ([]byte, error) {
 		result.WriteString("\x1bE\x00\x1ba\x00")
 		lines = lines[headerLines:]
 	}
+	var footer []string
+	if emphasizeFooter && len(lines) > 0 {
+		footer = lines[len(lines)-1:]
+		lines = lines[:len(lines)-1]
+	}
 	if err := appendText(Lines(lines, paperWidth)); err != nil {
 		return nil, err
+	}
+	if len(footer) > 0 {
+		// Keep the normal width and double the height for the closing line.
+		result.WriteString("\x1ba\x01\x1bE\x01\x1d!\x01")
+		if err := appendText(Lines(footer, paperWidth)); err != nil {
+			return nil, err
+		}
+		result.WriteString("\x1d!\x00\x1bE\x00\x1ba\x00")
 	}
 	result.WriteString("\x1bd\x03\x1dVB\x00")
 	return result.Bytes(), nil
