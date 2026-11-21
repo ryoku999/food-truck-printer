@@ -23,6 +23,14 @@ La configuración queda en `%ProgramFiles%\Food Truck Printer\data\config.json`.
 El JSON contiene la URL, el modo de simulación y el token protegido por
 DPAPI. La carpeta está restringida a SYSTEM y administradores. En la misma
 carpeta están `agent.log`, `state` y, en simulación, `out`.
+
+Al volver a iniciar sesión en Windows, busca el icono de **Food Truck Printer**
+junto al volumen o en los iconos ocultos. Al pasar el mouse, verás si el agente
+se comunica con la API o si está en modo **Simulación (TXT)**. Puedes cerrar
+el icono desde su menú y el servicio seguirá ejecutándose. La comunicación
+se comprueba con las operaciones habituales del agente y puede tardar
+alrededor de un minuto en reflejar una pérdida de conexión.
+
 Para actualizar o cambiar la configuración, abre el instalador nuevamente.
 Puedes dejar el token vacío si conservas la misma URL. Si rotaste el token
 en NestJS, pega el nuevo. El instalador conserva el directorio del diario.
@@ -35,7 +43,7 @@ Desde la raíz del repositorio, en Windows con Go 1.26 o posterior:
 go run ./cmd/build-installer
 ```
 
-El compilador genera el agente, lo incrusta en el instalador y deja
+El compilador genera el agente y la aplicación de bandeja, los incrusta en el instalador y deja
 `dist/FoodTruckPrinterSetup.exe`. El archivo resultante es autónomo.
 La reconstrucción no registra ni ejecuta el servicio.
 

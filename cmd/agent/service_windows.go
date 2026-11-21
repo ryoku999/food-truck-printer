@@ -44,15 +44,16 @@ func (serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, sta
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	client := worker.NewClient(settings.URL, token)
 	go func() {
-		if err := localapi.Serve(ctx, ""); err != nil {
+		if err := localapi.Serve(ctx, "", settings.Simulation, client.Connected); err != nil {
 			log.Printf("API local detenida: %v", err)
 		}
 	}()
 	wake := realtime.NewWakeupClient(ctx, settings.URL, token)
 	result := make(chan error, 1)
 	go func() {
-		result <- run(ctx, worker.NewClient(settings.URL, token), output, filepath.Join(data, "state"), wake)
+		result <- run(ctx, client, output, filepath.Join(data, "state"), wake)
 	}()
 	current := svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 	statuses <- current

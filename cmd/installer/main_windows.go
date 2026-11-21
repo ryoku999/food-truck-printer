@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	if len(agent) == 0 {
+	if len(agent) == 0 || len(tray) == 0 {
 		showError(fmt.Errorf("genera el instalador con go run ./cmd/build-installer"))
 		return
 	}
@@ -187,7 +187,7 @@ label{display:block;margin:1rem 0}input:not([type=checkbox]){display:block;box-s
 button{font:inherit;padding:.55rem 1rem} [role=alert]{border:1px solid;padding:1rem;overflow-wrap:anywhere}
 </style><main><h1>Food Truck Printer</h1>
 {{if .Done}}<p>Instalación completada. El servicio quedó iniciado y arrancará automáticamente con Windows.</p>
-<p>Puedes cerrar esta pestaña. En la app web, consulta el agente en <strong>Impresión</strong>.</p>
+<p>El icono de estado aparecerá al volver a iniciar sesión en Windows. Puedes cerrar esta pestaña.</p>
 {{else}}
 <p>Configura el agente que recoge los tickets de NestJS. El servicio se instalará en esta PC.</p>
 {{if .Error}}<p role="alert">{{.Error}}</p>{{end}}

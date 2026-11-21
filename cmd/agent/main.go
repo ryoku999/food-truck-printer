@@ -37,14 +37,15 @@ func main() {
 		log.Fatal("Configura PRINTER_API_URL y PRINTER_AGENT_TOKEN")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	client := worker.NewClient(baseURL, token)
+	output := os.Getenv("PRINTER_OUTPUT_DIR")
 	go func() {
-		if err := localapi.Serve(ctx, os.Getenv("PRINTER_LOCAL_ADDR")); err != nil {
+		if err := localapi.Serve(ctx, os.Getenv("PRINTER_LOCAL_ADDR"), output != "", client.Connected); err != nil {
 			log.Printf("API local detenida: %v", err)
 		}
 	}()
-	client := worker.NewClient(baseURL, token)
 	wake := realtime.NewWakeupClient(ctx, baseURL, token)
-	err = run(ctx, client, os.Getenv("PRINTER_OUTPUT_DIR"), os.Getenv("PRINTER_STATE_DIR"), wake)
+	err = run(ctx, client, output, os.Getenv("PRINTER_STATE_DIR"), wake)
 	stop()
 	if err != nil {
 		log.Fatal(err)

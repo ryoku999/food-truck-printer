@@ -15,7 +15,7 @@ import (
 
 const DefaultAddr = "127.0.0.1:17890"
 
-func Serve(ctx context.Context, addr string) error {
+func Serve(ctx context.Context, addr string, simulation bool, connected func() bool) error {
 	if addr == "" {
 		addr = DefaultAddr
 	}
@@ -32,7 +32,10 @@ func Serve(ctx context.Context, addr string) error {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
-			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "service": "food-truck-printer", "time": time.Now().UTC()})
+			writeJSON(w, http.StatusOK, map[string]any{
+				"ok": true, "service": "food-truck-printer", "time": time.Now().UTC(),
+				"connected": connected(), "simulation": simulation,
+			})
 			return
 		}
 		if r.URL.Path == "/printers/discover" || r.URL.Path == "/api/printers/discover" {

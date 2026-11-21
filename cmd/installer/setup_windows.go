@@ -141,7 +141,10 @@ func install(settings config.Settings) error {
 		if err := service.Start(); err != nil {
 			return err
 		}
-		return waitFor(service, svc.Running)
+		if err := waitFor(service, svc.Running); err != nil {
+			return err
+		}
+		return installTray()
 	}
 	if err := configure(); err != nil {
 		if existing {
