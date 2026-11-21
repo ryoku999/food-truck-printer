@@ -15,6 +15,13 @@ type Client struct {
 	HTTP    *http.Client
 }
 
+type HTTPError struct {
+	Path   string
+	Status int
+}
+
+func (e *HTTPError) Error() string { return fmt.Sprintf("API %s: HTTP %d", e.Path, e.Status) }
+
 func NewClient(baseURL, token string) *Client {
 	return &Client{baseURL, token, &http.Client{
 		Timeout:       10 * time.Second,
@@ -39,7 +46,7 @@ func (c *Client) Post(ctx context.Context, path string, body, output any) error 
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return fmt.Errorf("API %s: HTTP %d", path, res.StatusCode)
+		return &HTTPError{Path: path, Status: res.StatusCode}
 	}
 	var response struct {
 		Success bool

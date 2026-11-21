@@ -14,10 +14,17 @@ var convert = syscall.NewLazyDLL("kernel32.dll").NewProc("WideCharToMultiByte")
 
 // Lines applies a conservative Font A width for common 58/80 mm printers.
 func Lines(lines []string, paperWidth int) []string {
-	width := 48
+	return wrapLines(lines, columns(paperWidth))
+}
+
+func columns(paperWidth int) int {
 	if paperWidth == 58 {
-		width = 32
+		return 32
 	}
+	return 48
+}
+
+func wrapLines(lines []string, width int) []string {
 	var result []string
 	for _, line := range lines {
 		line = strings.Map(func(r rune) rune {
@@ -47,7 +54,7 @@ func Lines(lines []string, paperWidth int) []string {
 }
 
 // Encode selects PC850 (ESC t 2), feeds paper, then requests a partial cut.
-func Encode(lines []string) ([]byte, error) {
+func encodeText(lines []string) ([]byte, error) {
 	text := utf16.Encode([]rune(strings.Join(lines, "\n") + "\n"))
 	data := make([]byte, len(text))
 	n, _, err := convert.Call(850, 0x400, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)),
@@ -55,9 +62,74 @@ func Encode(lines []string) ([]byte, error) {
 	if n == 0 {
 		return nil, fmt.Errorf("convertir ticket a CP850: %w", err)
 	}
+	return data[:n], nil
+}
+
+// Encode wraps plain and styled tickets. The optional header occupies the first
+// lines of the payload, with the restaurant first and the title last.
+func Encode(lines []string, paperWidth, headerLines int, emphasizeFooter bool) ([]byte, error) {
+	return EncodeReceipt(lines, paperWidth, headerLines, emphasizeFooter, nil, "")
+}
+
+func EncodeReceipt(lines []string, paperWidth, headerLines int, emphasizeFooter bool, logo []byte, receiptURL string) ([]byte, error) {
 	var result bytes.Buffer
 	result.WriteString("\x1b@\x1bt\x02")
-	result.Write(data[:n])
+	if raster := logoRaster(logo, paperWidth); len(raster) > 0 {
+		result.WriteString("\x1ba\x01")
+		result.Write(raster)
+		result.WriteString("\n\x1ba\x00")
+	}
+	appendText := func(text []string) error {
+		if len(text) == 0 {
+			return nil
+		}
+		data, err := encodeText(text)
+		if err != nil {
+			return err
+		}
+		result.Write(data)
+		return nil
+	}
+	if headerLines >= 2 && headerLines <= len(lines) {
+		result.WriteString("\x1ba\x01\x1bE\x01\x1d!\x11")
+		if err := appendText(wrapLines(lines[:1], columns(paperWidth)/2)); err != nil {
+			return nil, err
+		}
+		result.WriteString("\x1d!\x00\x1bE\x00")
+		if err := appendText(Lines(lines[1:headerLines-1], paperWidth)); err != nil {
+			return nil, err
+		}
+		result.WriteString("\x1bE\x01")
+		if err := appendText(Lines(lines[headerLines-1:headerLines], paperWidth)); err != nil {
+			return nil, err
+		}
+		result.WriteString("\x1bE\x00\x1ba\x00")
+		lines = lines[headerLines:]
+	}
+	var footer []string
+	if emphasizeFooter && len(lines) > 0 {
+		footer = lines[len(lines)-1:]
+		lines = lines[:len(lines)-1]
+	}
+	if err := appendText(Lines(lines, paperWidth)); err != nil {
+		return nil, err
+	}
+	if len(footer) > 0 {
+		// Keep the normal width and double the height for the closing line.
+		result.WriteString("\x1ba\x01\x1bE\x01\x1d!\x01")
+		if err := appendText(Lines(footer, paperWidth)); err != nil {
+			return nil, err
+		}
+		result.WriteString("\x1d!\x00\x1bE\x00\x1ba\x00")
+	}
+	if raster := receiptQR(receiptURL); len(raster) > 0 {
+		result.WriteString("\n\x1ba\x01")
+		if err := appendText([]string{"Verifica tu ticket"}); err != nil {
+			return nil, err
+		}
+		result.Write(raster)
+		result.WriteString("\n\x1ba\x00")
+	}
 	result.WriteString("\x1bd\x03\x1dVB\x00")
 	return result.Bytes(), nil
 }

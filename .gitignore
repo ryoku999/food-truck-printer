@@ -1,3 +1,5 @@
 /out/
 /agent
 /agent.exe
+/dist/
+/cmd/installer/payload/

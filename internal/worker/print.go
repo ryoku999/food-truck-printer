@@ -16,29 +16,37 @@ import (
 )
 
 type Job struct {
-	ID      string
-	Attempt int
-	Payload struct {
-		Lines          []string
-		OrderNumber    int
-		ProductionArea string
-		Items          []struct {
+	ID         string
+	Attempt    int
+	LogoImage  []byte
+	ReceiptURL string
+	Payload    struct {
+		Lines           []string
+		HeaderLines     int
+		EmphasizeFooter bool
+		OrderNumber     int
+		ProductionArea  string
+		Items           []struct {
 			ProductNameSnapshot string
 			Quantity            int
 			Notes               string
 		}
 	}
 	Printer struct {
-		ConnectionType string
-		Host           string
-		Port           int
-		SystemName     string
-		PaperWidth     int
+		ConnectionType  string
+		FallbackEnabled bool
+		Host            string
+		Port            int
+		SystemName      string
+		PaperWidth      int
 	}
 }
 
 // Print reports whether a failure occurred before any delivery was attempted.
 func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return true, err
+	}
 	if len(j.Payload.Lines) == 0 && len(j.Payload.Items) > 0 {
 		j.Payload.Lines = []string{fmt.Sprintf("%s | Pedido #%d", j.Payload.ProductionArea, j.Payload.OrderNumber)}
 		for _, item := range j.Payload.Items {
@@ -48,8 +56,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 			}
 		}
 	}
-	lines := escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth)
-	if len(lines) == 0 {
+	if len(j.Payload.Lines) == 0 {
 		return true, fmt.Errorf("trabajo sin contenido")
 	}
 	if outputDir != "" {
@@ -60,16 +67,46 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		if err := os.MkdirAll(outputDir, 0700); err != nil {
 			return true, err
 		}
-		content := strings.Join(lines, "\n") + "\n\n\n"
+		content := strings.Join(escpos.Lines(j.Payload.Lines, j.Printer.PaperWidth), "\n") + "\n\n\n"
 		return true, os.WriteFile(filepath.Join(outputDir, filename), []byte(content), 0600)
 	}
-	data, err := escpos.Encode(lines)
+	data, err := escpos.EncodeReceipt(j.Payload.Lines, j.Printer.PaperWidth, j.Payload.HeaderLines, j.Payload.EmphasizeFooter, j.LogoImage, j.ReceiptURL)
 	if err != nil {
 		return true, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	switch j.Printer.ConnectionType {
+	return sendWithFallback(ctx, j.Printer.ConnectionType, j.Printer.FallbackEnabled, func(transport string) (bool, error) {
+		return j.send(ctx, transport, data)
+	})
+}
+
+func sendWithFallback(ctx context.Context, primary string, enabled bool, send func(string) (bool, error)) (bool, error) {
+	safe, err := send(primary)
+	if err == nil || !safe || !enabled || ctx.Err() != nil {
+		return safe, err
+	}
+	var fallback string
+	switch primary {
+	case "NETWORK_TCP":
+		fallback = "SYSTEM_PRINTER"
+	case "SYSTEM_PRINTER":
+		fallback = "NETWORK_TCP"
+	default:
+		return safe, err
+	}
+	fallbackSafe, fallbackErr := send(fallback)
+	if fallbackErr == nil {
+		return false, nil
+	}
+	return fallbackSafe, fmt.Errorf("principal (%s): %w; respaldo (%s): %w", primary, err, fallback, fallbackErr)
+}
+
+func (j Job) send(ctx context.Context, transport string, data []byte) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return true, err
+	}
+	switch transport {
 	case "NETWORK_TCP":
 		dialer := net.Dialer{Timeout: 5 * time.Second}
 		conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(j.Printer.Host, strconv.Itoa(j.Printer.Port)))
@@ -89,7 +126,7 @@ func (j Job) Print(ctx context.Context, outputDir string) (bool, error) {
 		}
 		return false, err
 	case "SYSTEM_PRINTER":
-		return winprint.SendRaw(ctx, j.Printer.SystemName, data)
+		return winprint.SendRaw(ctx, j.Printer.SystemName, data, j.Printer.FallbackEnabled)
 	default:
 		return true, fmt.Errorf("tipo de conexión incompatible")
 	}
