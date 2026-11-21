@@ -1,5 +1,3 @@
-//go:build installer
-
 package main
 
 import (
@@ -20,9 +18,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var messageBox = windows.NewLazySystemDLL("user32.dll").NewProc("MessageBoxW")
-
 func main() {
+	if len(agent) == 0 {
+		showError(fmt.Errorf("genera el instalador con go run ./cmd/build-installer"))
+		return
+	}
 	if !windows.GetCurrentProcessToken().IsElevated() {
 		exe, err := os.Executable()
 		if err == nil {

@@ -1,10 +1,7 @@
-//go:build installer
-
 package main
 
 import (
 	"crypto/sha256"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +16,6 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-//go:embed payload/agent.exe
 var agent []byte
 
 func install(settings config.Settings) error {
