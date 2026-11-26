@@ -75,7 +75,11 @@ usa CP850 (tabla 2), líneas de 32/48 caracteres para papel de 58/80 mm y corte
 parcial. Valida estos valores con el modelo real. `PRINTED` confirma el envío
 completo al transporte, y en modo TXT confirma la escritura del archivo.
 
-Para comandas específicas asigna el `productionAreaId` de cocina o barra.
+Para imprimir comandas de cocina y barra, registra una impresora activa con
+propósito **Comandas de cocina y barra** (`GENERAL` en la API) y asígnala a un
+agente activo. Un pedido con productos de las dos áreas genera dos papeles
+por esa misma impresora. Configura la impresora de precuentas y comprobantes
+con propósito **Caja** (`CASHIER`).
 Usa HTTPS si el agente se conecta por una red no confiable.
 
 El agente mantiene además una conexión Socket.IO v4 con el namespace
