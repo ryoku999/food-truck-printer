@@ -34,6 +34,11 @@ func build() error {
 		return err
 	}
 	defer os.Remove(payload)
+	tray := filepath.Join(filepath.Dir(payload), "tray.exe")
+	if err := compile("build", "-trimpath", "-ldflags", "-H=windowsgui", "-o", tray, "./cmd/tray"); err != nil {
+		return err
+	}
+	defer os.Remove(tray)
 	if err := compile("vet", "-tags", "installer", "./cmd/installer"); err != nil {
 		return err
 	}

@@ -97,11 +97,24 @@ func Load(filename string) (Settings, string, error) {
 
 // PrivateDir restricts configuration, logs and journal to SYSTEM and administrators.
 func PrivateDir(dir string) error {
+	return protectedDir(dir, "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
+}
+
+func TrayDir() (string, error) {
+	root, err := windows.KnownFolderPath(windows.FOLDERID_ProgramFiles, 0)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(root, "Food Truck Printer Status")
+	return dir, protectedDir(dir, "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;GRGX;;;BU)")
+}
+
+func protectedDir(dir, permissions string) error {
 	ptr, err := windows.UTF16PtrFromString(dir)
 	if err != nil {
 		return err
 	}
-	sd, err := windows.SecurityDescriptorFromString("D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)")
+	sd, err := windows.SecurityDescriptorFromString(permissions)
 	if err != nil {
 		return err
 	}

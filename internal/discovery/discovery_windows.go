@@ -96,11 +96,12 @@ func Discover(ctx context.Context, requested string, port int) (Result, error) {
 			}
 		}()
 	}
+queueTargets:
 	for _, target := range targets {
 		select {
 		case jobs <- target.String():
 		case <-ctx.Done():
-			break
+			break queueTargets
 		}
 	}
 	close(jobs)

@@ -2,6 +2,7 @@ package escpos
 
 import (
 	"bytes"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/png"
@@ -37,13 +38,35 @@ func TestEncodeWithLogo(t *testing.T) {
 }
 
 func TestReceiptQRBeforeCut(t *testing.T) {
-	data, err := EncodeReceipt([]string{"PAGADO"}, 58, 0, false, nil, "https://example.com/ticket#sample")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(data, []byte("Verifica tu ticket\n\x1dv0\x00")) ||
-		!bytes.HasSuffix(data, []byte("\n\x1ba\x00\x1bd\x03\x1dVB\x00")) {
-		t.Fatal("el QR debe quedar después del texto y antes del corte")
+	const url = "https://example.com/ticket#00000000-0000-0000-0000-000000000000.signature-for-test"
+	const qrPrefix = "Verifica tu ticket\n\x1dv0\x00"
+	const suffix = "\n\x1ba\x00\x1bd\x03\x1dVB\x00"
+	for _, tc := range []struct {
+		name       string
+		paperWidth int
+		wantSize   int
+	}{
+		{"58 mm", 58, 320},
+		{"80 mm", 80, 384},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := EncodeReceipt([]string{"PAGADO"}, tc.paperWidth, 0, false, nil, url)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, raster, found := bytes.Cut(data, []byte(qrPrefix))
+			if !found || len(raster) < 4 || !bytes.HasSuffix(raster, []byte(suffix)) {
+				t.Fatal("el QR debe quedar después del texto y antes del corte")
+			}
+			stride := int(binary.LittleEndian.Uint16(raster[:2]))
+			height := int(binary.LittleEndian.Uint16(raster[2:4]))
+			if stride*8 != tc.wantSize || height != tc.wantSize {
+				t.Fatalf("QR = %d × %d puntos, esperado %d × %d", stride*8, height, tc.wantSize, tc.wantSize)
+			}
+			if got := len(raster) - 4 - len(suffix); got != stride*height {
+				t.Fatalf("datos del raster = %d bytes, esperados %d", got, stride*height)
+			}
+		})
 	}
 }
 

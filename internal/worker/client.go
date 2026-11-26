@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
 type Client struct {
-	BaseURL string
-	Token   string
-	HTTP    *http.Client
+	BaseURL     string
+	Token       string
+	HTTP        *http.Client
+	lastSuccess atomic.Pointer[time.Time]
 }
 
 type HTTPError struct {
@@ -23,13 +25,26 @@ type HTTPError struct {
 func (e *HTTPError) Error() string { return fmt.Sprintf("API %s: HTTP %d", e.Path, e.Status) }
 
 func NewClient(baseURL, token string) *Client {
-	return &Client{baseURL, token, &http.Client{
+	return &Client{BaseURL: baseURL, Token: token, HTTP: &http.Client{
 		Timeout:       10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}}
 }
 
-func (c *Client) Post(ctx context.Context, path string, body, output any) error {
+func (c *Client) Connected() bool {
+	last := c.lastSuccess.Load()
+	return last != nil && time.Since(*last) < 75*time.Second
+}
+
+func (c *Client) Post(ctx context.Context, path string, body, output any) (err error) {
+	defer func() {
+		if err != nil {
+			c.lastSuccess.Store(nil)
+			return
+		}
+		now := time.Now()
+		c.lastSuccess.Store(&now)
+	}()
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err

@@ -122,7 +122,7 @@ func EncodeReceipt(lines []string, paperWidth, headerLines int, emphasizeFooter 
 		}
 		result.WriteString("\x1d!\x00\x1bE\x00\x1ba\x00")
 	}
-	if raster := receiptQR(receiptURL); len(raster) > 0 {
+	if raster := receiptQR(receiptURL, paperWidth); len(raster) > 0 {
 		result.WriteString("\n\x1ba\x01")
 		if err := appendText([]string{"Verifica tu ticket"}); err != nil {
 			return nil, err

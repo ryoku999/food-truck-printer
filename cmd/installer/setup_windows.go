@@ -1,10 +1,7 @@
-//go:build installer
-
 package main
 
 import (
 	"crypto/sha256"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +16,6 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-//go:embed payload/agent.exe
 var agent []byte
 
 func install(settings config.Settings) error {
@@ -145,7 +141,10 @@ func install(settings config.Settings) error {
 		if err := service.Start(); err != nil {
 			return err
 		}
-		return waitFor(service, svc.Running)
+		if err := waitFor(service, svc.Running); err != nil {
+			return err
+		}
+		return installTray()
 	}
 	if err := configure(); err != nil {
 		if existing {
